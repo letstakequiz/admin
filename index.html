@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>File Upload to Firebase Storage</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #f4f4f4;
+  }
+
+  .container {
+    max-width: 600px;
+    margin: 50px auto;
+    padding: 20px;
+    background-color: #fff;
+    border-radius: 5px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  }
+
+  h1 {
+    text-align: center;
+    margin-bottom: 20px;
+  }
+
+  input[type="file"] {
+    margin-bottom: 10px;
+  }
+
+  button {
+    padding: 10px 20px;
+    background-color: #007bff;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+
+  progress {
+    width: 100%;
+    height: 20px;
+    margin-bottom: 10px;
+  }
+
+  #upload-status {
+    margin-top: 10px;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>File Upload to Firebase Storage</h1>
+  <input type="file" id="file-input">
+  <button id="upload-button">Upload File</button>
+  <progress value="0" max="100" id="upload-progress"></progress>
+  <div id="upload-status"></div>
+</div>
+<script src="https://www.gstatic.com/firebasejs/9.6.6/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.6/firebase-storage.js"></script>
+<script>
+  // Your Firebase configuration (replace with your own)
+  const firebaseConfig = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_AUTH_DOMAIN",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_STORAGE_BUCKET",
+    messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+    appId: "YOUR_APP_ID"
+  };
+
+  // Initialize Firebase
+  firebase.initializeApp(firebaseConfig);
+
+  // Get a reference to the storage service
+  const storage = firebase.storage();
+
+  // Get elements from the DOM
+  const fileInput = document.getElementById('file-input');
+  const uploadButton = document.getElementById('upload-button');
+  const uploadProgress = document.getElementById('upload-progress');
+  const uploadStatus = document.getElementById('upload-status');
+
+  // Event listener for file input change
+  fileInput.addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (file) {
+      uploadButton.disabled = false;
+    } else {
+      uploadButton.disabled = true;
+    }
+  });
+
+  // Event listener for upload button click
+  uploadButton.addEventListener('click', function() {
+    const file = fileInput.files[0];
+    if (file) {
+      const storageRef = storage.ref('uploads/' + file.name);
+      const uploadTask = storageRef.put(file);
+
+      // Monitor the upload progress
+      uploadTask.on('state_changed',
+        function(snapshot) {
+          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+          uploadProgress.value = progress;
+        },
+        function(error) {
+          console.error('Upload failed:', error);
+          uploadStatus.textContent = 'Upload failed: ' + error.message;
+        },
+        function() {
+          // Upload completed successfully, update the status
+          uploadStatus.textContent = 'Upload successful!';
+        }
+      );
+    }
+  });
+</script>
+</body>
+</html>
