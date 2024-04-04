@@ -108,7 +108,8 @@
         },
         function(error) {
           console.error('Upload failed:', error);
-          uploadStatus.textContent = 'Upload failed: ' + error.message;
+          alert('Upload failed: ' + error.message); // Display error message in alert
+          uploadStatus.textContent = 'Upload failed: ' + error.message; // Update status element
         },
         function() {
           // Upload completed successfully, update the status
