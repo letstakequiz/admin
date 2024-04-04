@@ -1,123 +1,347 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>File Upload to Firebase Storage</title>
-<style>
-  body {
-    font-family: Arial, sans-serif;
-    margin: 0;
-    padding: 0;
-    background-color: #f4f4f4;
-  }
+    <title>UPSC MCQ</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: row;
+            align-items: flex-start;
+            justify-content: space-between;
+            background-color: #f2f2f2;
+        }
 
-  .container {
-    max-width: 600px;
-    margin: 50px auto;
-    padding: 20px;
-    background-color: #fff;
-    border-radius: 5px;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-  }
+        #pdfViewer {
+            width: 70%;
+            height: 100vh;
+            padding: 20px;
+            box-sizing: border-box;
+            overflow: auto; /* Enable scrolling for the PDF */
+        }
 
-  h1 {
-    text-align: center;
-    margin-bottom: 20px;
-  }
+        #questionContainer {
+            width: 30%;
+            padding: 20px;
+            box-sizing: border-box;
+        }
 
-  input[type="file"] {
-    margin-bottom: 10px;
-  }
+        .question {
+            margin-bottom: 10px;
+        }
 
-  button {
-    padding: 10px 20px;
-    background-color: #007bff;
-    color: #fff;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-  }
+        .question h6 {
+            margin: 0;
+        }
 
-  progress {
+        .question label {
+            margin-left: 10px;
+        }
+
+    #submitBtn {
+        margin-top: 20px;
+        padding: 10px 20px;
+        background-color: #3498db;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 16px;
+    }
+
+    #submitBtn:hover {
+        background-color: #2980b9;
+    }
+
+
+        /* CSS for the spinner */
+.spinner-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
     width: 100%;
-    height: 20px;
-    margin-bottom: 10px;
-  }
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 9999;
+    display: none;
+}
+          .footer {
+            position: fixed;
+            left: 0;
+            bottom: 0;
+            width: 100%;
+            background-color: #333;
+            color: white;
+            text-align: center;
+            padding: 0px 0;
+        }
 
-  #upload-status {
-    margin-top: 10px;
-  }
-</style>
+.spinner {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #3498db;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+    </style>
 </head>
 <body>
-<div class="container">
-  <h1>File Upload to Firebase Storage</h1>
-  <input type="file" id="file-input">
-  <button id="upload-button">Upload File</button>
-  <progress value="0" max="100" id="upload-progress"></progress>
-  <div id="upload-status"></div>
+    <!-- Spinner overlay -->
+
+
+    <div id="pdfViewer">
+        <!-- PDF pages will be dynamically loaded here -->
+    </div>
+    <div id="questionContainer">
+        <h3>OMR Sheet Response</h3>
+        <div id="questions">
+            <!-- Questions will be dynamically generated here -->
+        </div>
+        <button id="submitBtn" onclick="submitForm()">Submit</button>
+
+        
+    </div>
+    
+    <div class="spinner-overlay" id="spinnerOverlay">
+    <div class="spinner"></div>
 </div>
-<script src="https://www.gstatic.com/firebasejs/9.6.6/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.6.6/firebase-storage.js"></script>
-<script>
-  // Your Firebase configuration (replace with your own)
-  const firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_AUTH_DOMAIN",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_STORAGE_BUCKET",
-    messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-    appId: "YOUR_APP_ID"
-  };
+     
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.8.335/pdf.min.js"></script>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+    <script type="text/javascript">
+        (function() {
+            // https://dashboard.emailjs.com/admin/account
+            emailjs.init({
+              publicKey: "c4SpcESPkuhk8FLHP",
+            });
+        })();
 
-  // Initialize Firebase
-  firebase.initializeApp(firebaseConfig);
+        // Specify worker source
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.8.335/pdf.worker.min.js';
 
-  // Get a reference to the storage service
-  const storage = firebase.storage();
+        document.addEventListener("DOMContentLoaded", function() {
+            const pdfViewer = document.getElementById("pdfViewer");
+            const questionContainer = document.getElementById("questions");
 
-  // Get elements from the DOM
-  const fileInput = document.getElementById('file-input');
-  const uploadButton = document.getElementById('upload-button');
-  const uploadProgress = document.getElementById('upload-progress');
-  const uploadStatus = document.getElementById('upload-status');
+            // Load PDF file
+            const pdfUrl = "11_GEO_CH1_CH2.pdf";
+            pdfjsLib.getDocument(pdfUrl).promise.then(function(pdf) {
+                // Load each page sequentially
+                function loadPage(pageNum) {
+                    pdf.getPage(pageNum).then(function(page) {
+                       const viewport = page.getViewport({ scale: 2.0 }); // Increase the scale value for higher resolution
 
-  // Event listener for file input change
-  fileInput.addEventListener('change', function(e) {
-    const file = e.target.files[0];
-    if (file) {
-      uploadButton.disabled = false;
-    } else {
-      uploadButton.disabled = true;
-    }
-  });
+                        const canvas = document.createElement("canvas");
+                        const context = canvas.getContext('2d');
+                        canvas.height = viewport.height;
+                        canvas.width = viewport.width;
+                        const renderContext = {
+                            canvasContext: context,
+                            viewport: viewport
+                        };
+                        page.render(renderContext).promise.then(function() {
+                            pdfViewer.appendChild(canvas);
 
-  // Event listener for upload button click
-  uploadButton.addEventListener('click', function() {
-    const file = fileInput.files[0];
-    if (file) {
-      const storageRef = storage.ref('uploads/' + file.name);
-      const uploadTask = storageRef.put(file);
+                            // Load next page or generate quiz questions if last page
+                            if (pageNum < pdf.numPages) {
+                                loadPage(pageNum + 1);
+                            } else {
+                                // Generate quiz questions after all PDF pages are loaded
+                                for (let i = 1; i <= 25; i++) {
+                                    const questionDiv = document.createElement("div");
+                                    questionDiv.classList.add("question");
+                                    questionDiv.innerHTML = `
+                                        <h6>Q${i} :
+                                        <label><input type="radio" name="q${i}" value="A"> A</label>
+                                        <label><input type="radio" name="q${i}" value="B"> B</label>
+                                        <label><input type="radio" name="q${i}" value="C"> C</label>
+                                        <label><input type="radio" name="q${i}" value="D"> D</label>
+                                        </h6>
+                                    `;
+                                    questionContainer.appendChild(questionDiv);
+                                }
+                            }
+                        });
+                    });
+                }
 
-      // Monitor the upload progress
-      uploadTask.on('state_changed',
-        function(snapshot) {
-          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-          uploadProgress.value = progress;
-        },
-        function(error) {
-          console.error('Upload failed:', error);
-          alert('Upload failed: ' + error.message); // Display error message in alert
-          uploadStatus.textContent = 'Upload failed: ' + error.message; // Update status element
-        },
-        function() {
-          // Upload completed successfully, update the status
-          uploadStatus.textContent = 'Upload successful!';
+                // Start loading the first page
+                loadPage(1);
+            }).catch(function(error) {
+                console.error("Error loading PDF:", error);
+            });
+        });
+
+        function submitForm() {
+            document.getElementById('spinnerOverlay').style.display = 'block';
+    const formData = {};
+    let correctAnswers = 0;
+    let incorrectAnswers = 0;
+    let notSelected = 0;
+
+    // Fetch the answer CSV file
+    fetch('ANS_GEO_11_CH1_CH2.csv')
+        .then(response => response.text())
+        .then(data => {
+            const rows = data.split('\n');
+            const answers = {};
+            rows.forEach(row => {
+                const [question, answer] = row.split(',');
+                if (question && answer) {
+                    answers[question.trim()] = answer.trim();
+                }
+            });
+
+            // Calculate the score and prepare the responses
+            const results = [];
+            for (let i = 1; i <= 25; i++) {
+                const questionNumber = `Question ${i}`;
+                formData[questionNumber] = getSelectedOption(`q${i}`);
+                const selectedAnswer = formData[questionNumber];
+                const correctAnswer = answers[questionNumber];
+
+                if (selectedAnswer === correctAnswer) {
+                    correctAnswers++;
+                } else if (selectedAnswer === 'Not Selected') {
+                    notSelected++;
+                } else {
+                    incorrectAnswers++;
+                }
+
+                results.push({
+                    Question: questionNumber,
+                    SelectedAnswer: selectedAnswer,
+                    CorrectAnswer: correctAnswer
+                });
+            }
+
+            const totalQuestions = 25;
+            const score = (correctAnswers / totalQuestions) * 100;
+
+            // Send email with results
+            sendEmail(results)
+                .then(() => {
+                    // Display the results
+                    alert(`You scored ${score.toFixed(2)}%. Correct Answers: ${correctAnswers}, Incorrect Answers: ${incorrectAnswers}, Not Selected: ${notSelected}`);
+
+                    // Generate and save the results CSV
+                    generateResultsCSV(results);
+                     window.location.reload();
+                })
+                .catch(error => {
+                    document.getElementById('spinnerOverlay').style.display = 'none';
+                    console.error('Error sending email:', error);
+                    alert('Error sending email. Please try again.');
+                });
+        })
+        .catch(error => {
+            document.getElementById('spinnerOverlay').style.display = 'none';
+            console.error('Error reading answer.csv:', error);
+            alert(error);
+        });
+}
+
+
+
+
+
+       
+
+        function getSelectedOption(questionName) {
+            const options = document.getElementsByName(questionName);
+            for (let i = 0; i < options.length; i++) {
+                if (options[i].checked) {
+                    return options[i].value;
+                }
+            }
+            return "Not Selected";
         }
-      );
-    }
-  });
-</script>
+
+        function generateResultsCSV(results) {
+            const csvContent = "Question,Selected Answer,Correct Answer\n" +
+                results.map(result => `"${result.Question}","${result.SelectedAnswer}","${result.CorrectAnswer}"`).join("\n");
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.setAttribute("href", url);
+            link.setAttribute("download", "results.csv");
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+           
+        }
+
+        function sendEmail1(results) {
+            const emailContent = "Question,Selected Answer,Correct Answer\n" +
+                results.map(result => `"${result.Question}","${result.SelectedAnswer}","${result.CorrectAnswer}"`).join("\n");
+
+            const serviceID = 'service_40fn9tr';
+            const templateID = 'template_8mmf27k';
+
+            const templateParams = {
+        to_name: 'Sir/Madam', // Example name
+        message: emailContent, // Use the email content here
+    };
+
+            emailjs.send(serviceID, templateID, templateParams).then(
+                (response) => {
+                    document.getElementById('spinnerOverlay').style.display = 'none';
+                    alert('Email Sent Successfully !');
+
+                    console.log('SUCCESS!', response.status, response.text);
+                },
+                (error) => {
+                    document.getElementById('spinnerOverlay').style.display = 'none';
+                    alert(error);
+
+                    console.log('FAILED...', error);
+                }
+            );
+        }
+        function sendEmail(results) {
+    return new Promise((resolve, reject) => {
+        const emailContent = "Question,Selected Answer,Correct Answer\n" +
+            results.map(result => `"${result.Question}","${result.SelectedAnswer}","${result.CorrectAnswer}"`).join("\n");
+
+        const serviceID = 'service_40fn9tr';
+        const templateID = 'template_8mmf27k';
+
+        const templateParams = {
+            to_name: 'Sir/Madam', // Example name
+            message: emailContent, // Use the email content here
+        };
+
+        emailjs.send(serviceID, templateID, templateParams).then(
+            (response) => {
+                console.log('SUCCESS!', response.status, response.text);
+                 alert('Email Sent Successfully !');
+
+                resolve(); // Resolve the promise when email is sent successfully
+            },
+            (error) => {
+                console.log('FAILED...', error);
+                reject(error); // Reject the promise if there's an error sending the email
+            }
+        );
+    });
+}
+
+    </script>
 </body>
 </html>
